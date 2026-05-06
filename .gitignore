@@ -1,0 +1,17 @@
+# 不要提交環境變數 / 個資
+.env
+.env.local
+.env.*.local
+
+# Node.js（雖然這個 repo 不該有 node_modules，保險起見）
+node_modules/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# 暫存
+*.log
+*.tmp
