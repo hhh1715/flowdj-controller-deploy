@@ -1,4 +1,4 @@
-# FlowDJ Hardware Controller — 設置手冊
+# FlowDJ Hardware Controller — Ubuntu 設置手冊
 
 把硬體 DJ 控制器接上電腦、燒韌體、開瀏覽器混音。
 
@@ -12,89 +12,138 @@
 
 | 項目 | 說明 |
 |---|---|
-| 💻 電腦 | Windows 11（Win 10 應該也可以但沒測過） |
-| 🌐 瀏覽器 | **Chrome** 或 **Edge**（兩者都支援 Web MIDI）。**Firefox 不支援，請勿使用** |
-| 🎛 硬體 | FlowDJ DJ Controller（已組裝好的整組設備，含 USB Type-C 線） |
-| 🔌 USB 埠 | 一個空的 USB-A 或 USB-C 埠 |
+| 💻 電腦 | **Ubuntu 22.04 LTS 或更新版**（24.04 已測試 OK） |
+| 🌐 瀏覽器 | **Google Chrome** 或 **Chromium**（Firefox 預設不支援 Web MIDI） |
+| 🎛 硬體 | FlowDJ DJ Controller（已組裝好，含 USB 線） |
+| 🔌 USB 埠 | 一個空的 USB 埠 |
 | 📦 一些下載 | 約 200 MB（Node.js + Arduino IDE + Teensyduino） |
 
 ---
 
-## 一次性安裝（約 20 分鐘）
+## 一次性安裝（約 15 分鐘）
 
-> 💡 **以下三個步驟只要做一次。下次使用直接看「日常使用」即可。**
+> 💡 **以下這節只要做一次。下次使用直接看「日常使用」即可。**
+>
+> 終端機指令前的 `$` 是提示符，不用打進去。打開終端機的快捷鍵：`Ctrl + Alt + T`。
 
 ### Step 1 — 安裝 Node.js（給網頁用）
 
-1. 到 https://nodejs.org/ 下載 **LTS 版**（左邊綠色按鈕）
-2. 雙擊 `.msi` → 一路 Next（保持預設選項就好）
-3. 安裝完打開 PowerShell 或 cmd，輸入下列指令確認：
-   ```
-   node --version
-   ```
-   有看到版本號（像 `v20.11.0`）就成功
+複製貼上整段執行：
 
-### Step 2 — 安裝 Arduino IDE + Teensyduino（燒韌體用）
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+node --version
+```
 
-#### 2-1. Arduino IDE
-1. 到 https://www.arduino.cc/en/software 下載 **Arduino IDE 2.x for Windows**
-2. 雙擊 `.exe` 安裝（一路 Next）
-3. 第一次開啟時 Windows 會跳許可權提示，按**允許**
+最後一行印出 `v20.x.x` 就成功。
 
-#### 2-2. Teensyduino（Teensy 4.0 的擴充支援）
-1. 到 https://www.pjrc.com/teensy/td_download.html
-2. 在「Boards Manager Install」區塊複製這個網址：
-   ```
-   https://www.pjrc.com/teensy/package_teensy_index.json
-   ```
-3. 回到 Arduino IDE：
-   - **File → Preferences**
-   - 找到「**Additional boards manager URLs**」這欄
-   - 把上面那個網址貼進去，按 **OK**
-4. 接著：
-   - **Tools → Board → Boards Manager...**
-   - 搜尋 **Teensy**，點 **Install**（會下載一陣子）
+### Step 2 — 安裝 Chrome（給 Web MIDI 用）
 
-#### 2-3. 安裝必要的 library
+選一個就好（推薦 Chrome）：
+
+#### 選項 A：Google Chrome
+```bash
+wget -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt install -y /tmp/chrome.deb
+```
+
+#### 選項 B：Chromium（Snap 套件）
+```bash
+sudo snap install chromium
+```
+
+### Step 3 — 安裝 Arduino IDE
+
+到 https://www.arduino.cc/en/software 下載 **Linux AppImage 64 bit**，放到家目錄（`~/`）。
+
+```bash
+cd ~
+chmod +x arduino-ide_*.AppImage
+./arduino-ide_*.AppImage
+```
+
+第一次開啟可能彈警告，按允許。確認可以開後先關掉，繼續下一步。
+
+> 想要每次都從應用程式選單開啟？把 AppImage 拖到 `~/Applications/` 並安裝 [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher)（可選）。
+
+### Step 4 — 安裝 Teensy udev 規則（**Linux 必做**）
+
+Linux 預設不允許一般使用者直接寫入 USB 裝置。下載 PJRC 提供的規則檔解決這個：
+
+```bash
+sudo wget -O /etc/udev/rules.d/00-teensy.rules https://www.pjrc.com/teensy/00-teensy.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+### Step 5 — 在 Arduino IDE 安裝 Teensyduino + MPR121 library
+
+打開 Arduino IDE：
+
+#### 5-1. 加入 Teensy boards manager URL
+- **File → Preferences**
+- 找到「**Additional boards manager URLs**」這欄
+- 貼上：
+  ```
+  https://www.pjrc.com/teensy/package_teensy_index.json
+  ```
+- 按 **OK**
+
+#### 5-2. 安裝 Teensyduino
+- **Tools → Board → Boards Manager...**
+- 搜尋 **Teensy** → 點 **Install**（會下載一段時間）
+
+#### 5-3. 安裝 Adafruit MPR121 library
 - **Tools → Manage Libraries...**（或左側 📚 圖示）
 - 搜尋 **Adafruit MPR121** → 點 **Install**
-- 跳出「Install dependencies?」時選 **Install all**
+- 跳出 dependencies 提示時選 **Install all**
 
----
+### Step 6 — 燒韌體到 Teensy
 
-### Step 3 — 燒韌體到 Teensy
-
-1. **接 USB**：把硬體控制器接到電腦，等 Windows 顯示「裝置就緒」。
-2. **開啟韌體檔**：Arduino IDE → **File → Open** → 找到這個資料夾裡的：
+1. **接 USB**：把硬體控制器接到電腦
+2. **開啟韌體**：Arduino IDE → **File → Open** → 找到本資料夾的：
    ```
-   firmware\05_full_integration.ino
+   firmware/05_full_integration.ino
    ```
 3. **設定 Board**：
    - **Tools → Board → Teensyduino → Teensy 4.0**
-   - **Tools → USB Type → Serial + MIDI**
-   - **Tools → Port** → 選那個顯示 **Teensy** 的（通常是 `COM3` 或 `COM4`）
-4. **按上方箭頭 → Upload**（或快捷鍵 `Ctrl+U`）
-5. 下方訊息列出現 `Done uploading.` + Teensy 上的 LED 閃一下 → 成功
+   - **Tools → USB Type → Serial + MIDI**（**重要：必選這個，瀏覽器才抓得到 MIDI**）
+   - **Tools → Port** → 顯示 `Teensy` 的那個（通常是 `/dev/ttyACM0`）
+4. **按上方箭頭 → Upload**（或 `Ctrl+U`）
+5. 訊息列出現 `Done uploading.` + Teensy 上 LED 閃 → 成功
 
-> ⚠️ 如果上傳卡住、或找不到 Port，按一下 Teensy 板子上的小按鈕（強制進入 bootloader），再重新 Upload。
+> ⚠️ 上傳卡住或 Port 抓不到 → 按 Teensy 板上的小白按鈕強制 bootloader，再 Upload。
 
 ---
 
 ## 日常使用
 
-### 雙擊 `start.bat`
+### 第一次：給啟動腳本執行權限（只做一次）
 
-第一次跑會自動下載 `serve` 工具（約 30 秒），之後每次都是秒開。
+```bash
+cd <flowdj-controller-deploy 資料夾>
+chmod +x start.sh
+```
+
+### 之後：每次用就執行
+
+```bash
+./start.sh
+```
 
 腳本會：
-1. 在 `http://localhost:3000` 啟動本地網頁伺服器
-2. 自動用預設瀏覽器打開頁面
+1. 檢查 Node.js 是否安裝
+2. 在 `http://localhost:3000` 啟動本地伺服器
+3. 自動用 Chrome / Chromium 打開頁面
 
-### 第一次開啟時
+> 不喜歡終端機？也可以在檔案管理員按右鍵 → 屬性 → 權限勾「Execute」，然後雙擊 `start.sh` → 「在終端機中執行」。
 
-1. 瀏覽器跳「**允許 MIDI 裝置存取**」→ 按 **允許**
-2. 右下角應該會看到 MIDI Monitor 顯示綠色 ● `ready`
-3. 摸一下 jog wheel 或按按鈕，看右下會不會出現對應事件
+### 第一次開啟瀏覽器時
+
+1. 跳「**允許 MIDI 裝置存取**」→ 按 **允許**
+2. 右下角 MIDI Monitor 顯示 ● `ready`（綠）
+3. 摸 jog 或按按鈕，看右下事件流是否會更新
 
 ### 玩起來
 
@@ -107,34 +156,47 @@
 | **Jog Wheel** | 觸摸 + 旋轉 = scratch（順時針=前進、逆時針=倒退） |
 | **速度 slider** | tempo 微調 |
 | **音量 fader** | 該 deck 的音量 |
-| 右下「**HW → A**」膠囊 | 點一下切換硬體控制 Deck A 還是 Deck B |
-| 右下「**MIDI**」膠囊 | 展開 MIDI 事件監看 |
+| 右下「**HW A / B**」鈕 | 點一下切換硬體控制 Deck A 還是 Deck B |
+| 右下「**MIDI**」鈕 | 展開 MIDI 事件監看 |
 
 ---
 
 ## 故障排除
 
-### 🔴 雙擊 `start.bat` 後黑視窗一閃就關
-代表 Node.js 沒裝好。重新做 [Step 1](#step-1--安裝-nodejs給網頁用)，輸入 `node --version` 確認。
+### 🔴 `./start.sh: command not found: node`
+Node.js 沒裝好。重做 [Step 1](#step-1--安裝-nodejs給網頁用)，輸入 `node --version` 確認。
+
+### 🔴 `./start.sh: Permission denied`
+還沒加上執行權限：
+```bash
+chmod +x start.sh
+```
 
 ### 🔴 瀏覽器打開但 MIDI Monitor 顯示紅色 `unsupported`
-你正在用 Firefox。改用 Chrome 或 Edge 開 `http://localhost:3000`。
+你開的是 Firefox（預設不支援 Web MIDI）。改用 Chrome 或 Chromium 打開 `http://localhost:3000`。
 
-### 🔴 MIDI Monitor 是綠色 `ready` 但摸硬體沒反應
-1. 把硬體 USB 拔掉重接
-2. F5 重整網頁
-3. 仍無效 → Teensy 韌體可能沒燒成功，重做 [Step 3](#step-3--燒韌體到-teensy)
+### 🔴 Arduino IDE 找不到 Port / 上傳印 `Permission denied: /dev/ttyACM0`
+udev 規則沒裝好或沒重載。確認檔案存在：
+```bash
+ls -l /etc/udev/rules.d/00-teensy.rules
+```
+如果不存在，重做 [Step 4](#step-4--安裝-teensy-udev-規則linux-必做)。如果存在但還是不行，重啟電腦。
 
 ### 🔴 Arduino IDE 找不到 Teensy 板
-- Tools → Board 列表沒有 Teensy → Teensyduino 沒裝好，重做 [Step 2-2](#2-2-teensyduinoteensy-40-的擴充支援)
-- Tools → Port 沒看到 Teensy → 確認 USB 線、換另一個 USB 埠試試
+- Tools → Board 列表沒有 Teensy → Teensyduino 沒裝好，重做 [Step 5-2](#5-2-安裝-teensyduino)
+- 用 `lsusb` 看有沒有 `Teensy` 字眼
 
-### 🔴 Jog wheel 反應靈敏度怪怪
-- 太敏感 / 太鈍：這個是設計上選定的甜蜜點（0.018），如果真的不適應，編輯 `app/assets/index-*.js` 不可行（已 minify）。回去找原始碼版本調整。
+### 🔴 MIDI Monitor 是綠色 `ready` 但摸硬體沒反應
+1. USB 拔掉重接
+2. F5 重整網頁
+3. 仍無效 → Teensy 韌體可能沒燒成功，重做 [Step 6](#step-6--燒韌體到-teensy)，留意 USB Type 的選擇
 
 ### 🔴 沒聲音
-- 檢查 Windows 音量、瀏覽器音量
+- 檢查系統音量、瀏覽器分頁是否靜音（網址列右邊 🔇 圖示）
+- 用 `pavucontrol` 確認輸出裝置正確（沒裝 → `sudo apt install pavucontrol`）
 - 確認有把曲目從左下角的曲庫拖到 deck 上
+
+更詳細的問題見 [`docs/troubleshooting.md`](docs/troubleshooting.md)。
 
 ---
 
@@ -143,7 +205,7 @@
 ```
 flowdj-controller-deploy/
 ├── README.md                ← 你正在看的這份
-├── start.bat                ← 雙擊啟動
+├── start.sh                 ← 執行啟動
 ├── app/                     ← 預先 build 好的 Web App（不需要改）
 ├── firmware/
 │   ├── 05_full_integration.ino   ← 用 Arduino IDE 開這個燒

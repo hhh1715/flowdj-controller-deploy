@@ -1,12 +1,36 @@
-# 詳細疑難排解
+# 詳細疑難排解（Ubuntu）
 
 按症狀分類。如果在 README 的「故障排除」區找不到答案，這裡會更詳細。
 
 ## 安裝階段
 
+### Node.js 安裝失敗 / `node --version` 出現舊版本（如 v12.x）
+Ubuntu apt 內建的 Node 通常版本太舊。改用 NodeSource：
+```bash
+sudo apt remove -y nodejs npm  # 先把舊的清掉
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+node --version  # 應該 v20.x
+```
+
+### Arduino IDE AppImage 雙擊沒反應
+```bash
+chmod +x ~/arduino-ide_*.AppImage
+```
+然後從終端機執行看錯誤訊息：
+```bash
+~/arduino-ide_*.AppImage
+```
+缺套件的話通常會印出來。常見：
+```bash
+sudo apt install -y libfuse2
+```
+
 ### Arduino IDE 找不到 Teensy 4.0
-**確認順序**：
-1. **File → Preferences → Additional boards manager URLs** 是否有 `https://www.pjrc.com/teensy/package_teensy_index.json`
+1. **File → Preferences → Additional boards manager URLs** 是否有：
+   ```
+   https://www.pjrc.com/teensy/package_teensy_index.json
+   ```
 2. **Tools → Board → Boards Manager...** 搜尋 Teensy，是否顯示 INSTALLED
 3. 沒裝好就點 Install，跑完重啟 Arduino IDE
 
@@ -15,17 +39,33 @@
 - 搜尋 `Adafruit MPR121`
 - 點 **Install**，如跳出依賴提示選 **Install all**
 
-### Tools → Port 沒有顯示 Teensy
-1. 換另一條 USB 線（充電線可能不支援資料傳輸）
-2. 換另一個 USB 埠
-3. **按一下 Teensy 板上的小白按鈕**強制進入燒錄模式
-4. 還是不行 → 可能 Teensy 板壞了，找原作者
+### Tools → Port 沒看到 /dev/ttyACM0
+- udev 規則沒裝好或沒重載：見下一條
+- USB 線可能不支援資料傳輸（換一條試試）
+- 換另一個 USB 埠
+- 用 `lsusb` 看：
+  ```bash
+  lsusb | grep -i teensy
+  ```
+  沒輸出代表系統沒抓到裝置 → 硬體層問題
+
+### Permission denied: /dev/ttyACM0
+udev 規則檔可能不存在或沒生效：
+```bash
+ls -l /etc/udev/rules.d/00-teensy.rules
+```
+如果不存在：
+```bash
+sudo wget -O /etc/udev/rules.d/00-teensy.rules https://www.pjrc.com/teensy/00-teensy.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+還是不行 → 重啟電腦。
 
 ## 燒韌體階段
 
-### 上傳卡在 "Waiting for Teensy device..."
-- 按 Teensy 板上的小白按鈕（強制 bootloader）
-- 上傳會繼續
+### 上傳卡在 `Waiting for Teensy device...`
+按一下 Teensy 板上的小白按鈕（強制 bootloader），上傳會繼續。
 
 ### 編譯錯誤 `Wire.h: No such file`
 Arduino IDE 沒裝好標準函式庫。重新安裝 Arduino IDE 即可。
@@ -40,32 +80,39 @@ Arduino IDE 沒裝好標準函式庫。重新安裝 Arduino IDE 即可。
 
 ## 使用階段
 
-### 雙擊 start.bat 後黑視窗閃一下就消失
-**原因**：Node.js 沒裝好或不在 PATH
-**修復**：
-1. 開 PowerShell，執行 `node --version`
-2. 如果說「不是內部或外部命令」→ Node.js 沒裝好，重做 README Step 1
-3. 重灌 Node.js 時記得勾選「**Add to PATH**」（預設就有勾）
+### `./start.sh` 報 `Permission denied`
+還沒給執行權限：
+```bash
+chmod +x start.sh
+```
 
-### 雙擊 start.bat 卡在 "下載 serve 工具" 很久
+### `./start.sh` 報 `node: command not found`
+Node.js 沒裝好或不在 PATH。回到 README Step 1 重做：
+```bash
+node --version
+```
+應該印出 v20.x。
+
+### `./start.sh` 卡在「下載 serve 工具」很久
 - 第一次執行需從網路下載 `serve`（約 5–10 MB），網路慢就會慢
-- 等 1–2 分鐘還沒好 → 檢查網路、防火牆是否擋 npm
+- 等 1–2 分鐘還沒好 → 檢查網路、防火牆 / 公司 proxy 是否擋 npm registry
 
-### 瀏覽器自動打開的是 Edge 而我想用 Chrome
-- 用 Chrome 手動開 `http://localhost:3000` 即可（兩個都支援 Web MIDI）
-- 想預設改 Chrome：Windows 設定 → 應用程式 → 預設應用程式 → 把瀏覽器設為 Chrome
+### 開的瀏覽器是 Firefox
+Firefox 預設不支援 Web MIDI（雖然有 flag 可以開但不穩定）。建議用 Chrome 或 Chromium。
+- 把 Chrome 設為預設瀏覽器：系統設定 → 預設應用程式 → 瀏覽器
+- 或手動開 Chrome 貼網址：`http://localhost:3000`
 
 ### MIDI Monitor 顯示紅色 `unsupported`
-你用的瀏覽器是 **Firefox**（預設不支援 Web MIDI）。換 Chrome 或 Edge。
+你開的瀏覽器是 **Firefox**，換 Chrome 或 Chromium。
 
 ### MIDI Monitor 顯示黃色 `connecting` 永遠不變綠
 1. F5 重整
 2. 拒絕過 MIDI 權限的話，需到 chrome://settings/content/midiDevices 重新允許
 3. 看右下「inputs」有沒有列出 Teensy；沒有就重接 USB
 
-### MIDI Monitor 綠色 ready，但摸硬體完全沒事件
+### MIDI Monitor 綠色 `ready`，但摸硬體完全沒事件
 - 韌體沒燒對：USB Type 不是 Serial + MIDI
-- 重做 [README Step 3](../README.md#step-3--燒韌體到-teensy)，留意 USB Type 的選擇
+- 重做 [README Step 6](../README.md#step-6--燒韌體到-teensy)，留意 USB Type 的選擇
 
 ### Jog 摸了會動，但方向跟期待相反
 DJ 慣例是順時針 = 前進。如果你的硬體裝配 jog 電極順序跟韌體不一致，會反過來。
@@ -81,15 +128,28 @@ DJ 慣例是順時針 = 前進。如果你的硬體裝配 jog 電極順序跟韌
 - 根本性需要檢查硬體接線
 
 ### 沒聲音
-- Windows 系統音量沒開 / 靜音
+- 系統音量沒開 / 靜音：點右上角喇叭圖示
 - 瀏覽器分頁靜音（網址列右邊有沒有 🔇 圖示）
 - 沒拖曲目到 deck 上
-- Audio output 不在預期裝置（系統設定 → 音效 → 輸出裝置）
+- 用 `pavucontrol` 確認音訊輸出裝置正確：
+  ```bash
+  sudo apt install -y pavucontrol
+  pavucontrol
+  ```
+
+### Chrome 沒辦法用 / 開不起來（Snap chromium 卡頓）
+Snap chromium 在某些 Ubuntu 版本上會卡。改裝 Google Chrome `.deb`：
+```bash
+wget -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt install -y /tmp/chrome.deb
+sudo snap remove chromium  # 可選，移掉舊的
+```
 
 ## 還是不行？
 
 帶這些訊息找原作者：
 1. 卡在哪一步驟（README 的 Step 幾？）
 2. 完整的錯誤訊息文字（截圖或複製）
-3. 你的 Windows 版本（按 `Win + R` → 輸入 `winver`）
+3. Ubuntu 版本（`lsb_release -a`）
 4. Node.js 版本（`node --version`）
+5. `lsusb` 輸出（看 USB 裝置）
